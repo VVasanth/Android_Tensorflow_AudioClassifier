@@ -1,5 +1,12 @@
 package com.tensorflow.android.audio.features;
 
+/**
+ * Wav file abstraction layer.
+ * Source based on http://www.labbookpages.co.uk/audio/javaWavFiles.html
+ *
+ *
+ */
+
 public class MFCC {
 
     private static int       n_mfcc       		= 40;

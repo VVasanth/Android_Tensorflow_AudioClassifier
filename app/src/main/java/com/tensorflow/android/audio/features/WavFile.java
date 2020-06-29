@@ -8,6 +8,9 @@ import java.io.IOException;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 
+/*
+Source based on https://github.com/Semantive/waveform-android/blob/master/library/src/main/java/com/semantive/waveformandroid/waveform/soundfile/WavFile.java
+ */
 
 public class WavFile {
     private enum IOState {READING, WRITING, CLOSED}
