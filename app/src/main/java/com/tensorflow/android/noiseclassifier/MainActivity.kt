@@ -108,7 +108,7 @@ class MainActivity : AppCompatActivity() {
                 frameOffset = wavFile.readFrames(buffer, mNumFrames, frameOffset)
             }
 
-
+            //trimming the magnitude values to 5 decimal digits
             val df = DecimalFormat("#.#####")
             df.setRoundingMode(RoundingMode.CEILING)
             val meanBuffer = DoubleArray(mNumFrames)
@@ -172,6 +172,7 @@ class MainActivity : AppCompatActivity() {
 
         var predictedResult: String? = "unknown"
 
+        //load the TFLite model in 'MappedByteBuffer' format using TF Interpreter
         val tfliteModel: MappedByteBuffer =
                 FileUtil.loadMappedFile(this, getModelPath())
         val tflite: Interpreter
@@ -182,22 +183,29 @@ class MainActivity : AppCompatActivity() {
         tfliteOptions.setNumThreads(2)
         tflite = Interpreter(tfliteModel, tfliteOptions)
 
+        //obtain the input and output tensor size required by the model
+        //for urban sound classification, input tensor should be of 1x40x1x1 shape
         val imageTensorIndex = 0
         val imageShape =
-                tflite.getInputTensor(imageTensorIndex).shape() // {1, height, width, 3}
+                tflite.getInputTensor(imageTensorIndex).shape()
         val imageDataType: DataType = tflite.getInputTensor(imageTensorIndex).dataType()
         val probabilityTensorIndex = 0
         val probabilityShape =
-                tflite.getOutputTensor(probabilityTensorIndex).shape() // {1, NUM_CLASSES}
+                tflite.getOutputTensor(probabilityTensorIndex).shape()
         val probabilityDataType: DataType =
                 tflite.getOutputTensor(probabilityTensorIndex).dataType()
 
+        //need to transform the MFCC 1d float buffer into 1x40x1x1 dimension tensor using TensorBuffer
         val inBuffer: TensorBuffer = TensorBuffer.createDynamic(imageDataType)
         inBuffer.loadArray(meanMFCCValues, imageShape)
         val inpBuffer: ByteBuffer = inBuffer.getBuffer()
         val outputTensorBuffer: TensorBuffer =
                 TensorBuffer.createFixedSize(probabilityShape, probabilityDataType)
+        //run the predictions with input and output buffer tensors to get probability values across the labels
         tflite.run(inpBuffer, outputTensorBuffer.getBuffer())
+
+
+        //Code to transform the probability predictions into label values
         val ASSOCIATED_AXIS_LABELS = "labels.txt"
         var associatedAxisLabels: List<String?>? = null
         try {
@@ -206,6 +214,7 @@ class MainActivity : AppCompatActivity() {
             Log.e("tfliteSupport", "Error reading label file", e)
         }
 
+        //Tensor processor for processing the probability values and to sort them based on the descending order of probabilities
         val probabilityProcessor: TensorProcessor = TensorProcessor.Builder()
                 .add(NormalizeOp(0.0f, 255.0f)).build()
         if (null != associatedAxisLabels) {
@@ -219,8 +228,11 @@ class MainActivity : AppCompatActivity() {
             val floatMap: Map<String, Float> =
                     labels.getMapWithFloatValue()
 
+            //function to retrieve the top K probability values, in this case 'k' value is 1.
+            //retrieved values are storied in 'Recognition' object with label details.
             val resultPrediction: List<Recognition>? = getTopKProbability(floatMap);
 
+            //get the top 1 prediction from the retrieved list of top predictions
             predictedResult = getPredictedValue(resultPrediction)
 
         }
